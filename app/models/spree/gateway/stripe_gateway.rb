@@ -36,20 +36,40 @@ module Spree
     def create_profile(payment)
       return unless payment.source.gateway_customer_profile_id.nil?
 
-      options = {
-        :email => payment.order.email,
-        :login => preferred_login
-      }.merge! address_for(payment)
+      options = options_for_create_profile(payment)
 
       response = provider.store(payment.source, options)
       if response.success?
-        payment.source.update_attributes!(:gateway_customer_profile_id => response.params['id'])
+        payment.source.update_attributes!(
+          :gateway_customer_profile_id => response.params['customer'],
+          :gateway_payment_profile_id => response.params['id']
+        )
       else
         payment.send(:gateway_error, response.message)
       end
     end
 
     private
+
+    def options_for_create_profile(payment)
+      options = {
+        :email => payment.order.email,
+        :login => preferred_login
+      }.merge! address_for(payment)
+
+      # try to find active profile for this customer/payment method
+      customer_profile = Spree::CreditCard.joins(:payments)
+        .where(active: true,
+               user_id: payment.order.user.id,
+               "spree_payments.payment_method_id" => payment.payment_method_id)
+        .pluck(:gateway_customer_profile_id).first
+      return options if customer_profile.nil?
+
+      {
+        customer: customer_profile,
+        set_default: true
+      }.merge! options
+    end
 
     def options_for_purchase_or_auth(money, creditcard, gateway_options)
       options = {}
