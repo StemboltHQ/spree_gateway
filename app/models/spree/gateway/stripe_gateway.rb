@@ -77,11 +77,10 @@ module Spree
       options[:currency] = preferred_currency
       if customer = creditcard.gateway_customer_profile_id
         options[:customer] = customer
-        creditcard = nil
-      elsif token = creditcard.gateway_payment_profile_id
-        # The Stripe ActiveMerchant gateway supports passing the token directly as the creditcard parameter
-        creditcard = token
       end
+      # The Stripe ActiveMerchant gateway supports passing the token directly as the creditcard parameter
+      # Specify which card to charge, if null will use default on Stripe
+      creditcard = creditcard.gateway_payment_profile_id
       return money, creditcard, options
     end
 
