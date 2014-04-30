@@ -40,9 +40,17 @@ module Spree
 
       response = provider.store(payment.source, options)
       if response.success?
+        # create new customer or add card to existing
+        if options[:customer].nil?
+          customer_profile_id = response.params['id']
+          payment_profile_id = response.params['default_card']
+        else
+          customer_profile_id = response.params['customer']
+          payment_profile_id = response.params['id']
+        end
         payment.source.update_attributes!(
-          :gateway_customer_profile_id => response.params['customer'],
-          :gateway_payment_profile_id => response.params['id']
+          :gateway_customer_profile_id => customer_profile_id,
+          :gateway_payment_profile_id => payment_profile_id
         )
       else
         payment.send(:gateway_error, response.message)
